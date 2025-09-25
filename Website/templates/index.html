@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campus Pathfinding System</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+            color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        .content {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .control-panel {
+            flex: 1;
+            min-width: 300px;
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .map-container {
+            flex: 2;
+            min-width: 500px;
+            height: 600px;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        select, button {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        
+        select {
+            background-color: #f8f9fa;
+            cursor: pointer;
+        }
+        
+        select:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+        }
+        
+        button {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        
+        button:hover {
+            background: linear-gradient(135deg, #2980b9, #2573a7);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        
+        .result {
+            margin-top: 25px;
+            padding: 20px;
+            border-radius: 8px;
+            background-color: #f8f9fa;
+            display: none;
+        }
+        
+        .result.active {
+            display: block;
+            animation: fadeIn 0.5s;
+        }
+        
+        .result.error {
+            background-color: #ffeaea;
+            border-left: 4px solid #e74c3c;
+        }
+        
+        .result h3 {
+            margin-bottom: 15px;
+            color: #2c3e50;
+            border-bottom: 1px solid #eaeaea;
+            padding-bottom: 10px;
+        }
+        
+        .path-info {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 10px;
+            border-left: 4px solid #3498db;
+        }
+        
+        .algorithm-info {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e8f4fc;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #2c3e50;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 10px;
+        }
+        
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        @media (max-width: 768px) {
+            .content {
+                flex-direction: column;
+            }
+            
+            .map-container {
+                min-width: 100%;
+                height: 400px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Campus Pathfinding System</h1>
+            <p class="subtitle">Find the best route between campus locations</p>
+        </header>
+        
+        <div class="content">
+            <div class="control-panel">
+                <form id="pathForm">
+                    <div class="form-group">
+                        <label for="start">Start Location:</label>
+                        <select id="start" required>
+                            <option value="">Select start location</option>
+                            {% for location in locations %}
+                                <option value="{{ location }}">{{ location }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="goal">Destination:</label>
+                        <select id="goal" required>
+                            <option value="">Select destination</option>
+                            {% for location in locations %}
+                                <option value="{{ location }}">{{ location }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="algorithm">Pathfinding Algorithm:</label>
+                        <select id="algorithm" required>
+                            <option value="bfs">Breadth-First Search (BFS)</option>
+                            <option value="dfs">Depth-First Search (DFS)</option>
+                            <option value="ucs">Uniform Cost Search (UCS)</option>
+                        </select>
+                    </div>
+                    
+                    <button type="submit">Find Path</button>
+                </form>
+                
+                <div class="loading" id="loading">
+                    <div class="loading-spinner"></div>
+                    <p>Finding path...</p>
+                </div>
+                
+                <div class="algorithm-info">
+                    <h4>About the Algorithms:</h4>
+                    <p><strong>BFS:</strong> Finds the shortest path in terms of number of steps.</p>
+                    <p><strong>DFS:</strong> Explores as far as possible along each branch.</p>
+                    <p><strong>UCS:</strong> Finds the path with the lowest total cost (distance).</p>
+                </div>
+                
+                <div id="result" class="result">
+                    <h3>Path Found</h3>
+                    <div id="pathResult" class="path-info"></div>
+                    <div id="costResult" class="path-info"></div>
+                </div>
+            </div>
+            
+            <div class="map-container">
+                <div id="map"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script>
+        // Initialize the map
+        const map = L.map('map').setView([13.223, 77.756], 16);
+        
+        // Add tile layer (OpenStreetMap)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+        
+        // Campus locations with coordinates (same as backend)
+        const locations = {
+            "Main Gate": [13.2200, 77.7539],
+            "ID Gate": [13.2214, 77.7549],
+            "Flag Pole": [13.2218, 77.7550],
+            "Admin Block": [13.2222, 77.7552],
+            "Library": [13.221971, 77.75558],
+            "Vend": [13.222264, 77.755126],
+            "Cafeteria": [13.22242, 77.755158],
+            "Lawn Area": [13.222775, 77.755576],
+            "Block 2": [13.22336, 77.755963],
+            "Food Court": [13.224758, 77.75725],
+            "Hostel": [13.224195, 77.758613],
+            "Sports Area": [13.22887, 77.7572]
+        };
+        
+        // Add markers to the map
+        const markers = {};
+        for (const [name, coords] of Object.entries(locations)) {
+            const marker = L.marker(coords).addTo(map);
+            marker.bindPopup(`<b>${name}</b>`);
+            markers[name] = marker;
+        }
+        
+        // Variables to track path visualization
+        let currentPathLayer = null;
+        let startMarker = null;
+        let endMarker = null;
+        
+        // Function to update start and end markers
+        function updateMarkers(start, end) {
+            // Remove existing markers if any
+            if (startMarker) map.removeLayer(startMarker);
+            if (endMarker) map.removeLayer(endMarker);
+            
+            // Add new markers with different colors
+            if (start && locations[start]) {
+                startMarker = L.marker(locations[start], {
+                    icon: L.icon({
+                        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
+                        iconSize: [25, 41],
+                        iconAnchor: [12, 41]
+                    })
+                }).addTo(map).bindPopup(`<b>Start: ${start}</b>`).openPopup();
+            }
+            
+            if (end && locations[end]) {
+                endMarker = L.marker(locations[end], {
+                    icon: L.icon({
+                        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+                        iconSize: [25, 41],
+                        iconAnchor: [12, 41]
+                    })
+                }).addTo(map).bindPopup(`<b>Destination: ${end}</b>`).openPopup();
+            }
+        }
+        
+        // Function to draw path on the map
+        function drawPath(path) {
+            // Remove existing path if any
+            if (currentPathLayer) {
+                map.removeLayer(currentPathLayer);
+            }
+            
+            if (path && path.length > 1) {
+                const latLngs = path.map(location => locations[location]);
+                currentPathLayer = L.polyline(latLngs, {
+                    color: '#3498db',
+                    weight: 6,
+                    opacity: 0.7,
+                    smoothFactor: 1
+                }).addTo(map);
+                
+                // Fit map to show the entire path
+                map.fitBounds(currentPathLayer.getBounds());
+            }
+        }
+        
+        // Handle form submission
+        document.getElementById('pathForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const start = document.getElementById('start').value;
+            const goal = document.getElementById('goal').value;
+            const algorithm = document.getElementById('algorithm').value;
+            
+            if (!start || !goal) {
+                alert('Please select both start and destination locations');
+                return;
+            }
+            
+            // Show loading indicator
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('result').classList.remove('active');
+            
+            try {
+                const response = await fetch('/find_path', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        start: start,
+                        goal: goal,
+                        algorithm: algorithm
+                    })
+                });
+                
+                const data = await response.json();
+                const resultDiv = document.getElementById('result');
+                const pathResult = document.getElementById('pathResult');
+                const costResult = document.getElementById('costResult');
+                
+                // Hide loading indicator
+                document.getElementById('loading').style.display = 'none';
+                
+                if (data.success) {
+                    resultDiv.classList.add('active');
+                    resultDiv.classList.remove('error');
+                    
+                    pathResult.innerHTML = `<strong>Path:</strong> ${data.path.join(' → ')}`;
+                    
+                    if (data.cost !== null) {
+                        costResult.innerHTML = `<strong>Total Distance:</strong> ${data.cost} meters`;
+                    } else {
+                        costResult.innerHTML = '<strong>Note:</strong> BFS/DFS does not calculate distance cost';
+                    }
+                    
+                    // Update markers and draw path
+                    updateMarkers(start, goal);
+                    drawPath(data.path);
+                } else {
+                    resultDiv.classList.add('active', 'error');
+                    pathResult.innerHTML = `<strong>Error:</strong> ${data.error}`;
+                    costResult.innerHTML = '';
+                    
+                    // Clear path from map
+                    if (currentPathLayer) {
+                        map.removeLayer(currentPathLayer);
+                        currentPathLayer = null;
+                    }
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('loading').style.display = 'none';
+                alert('Error finding path. Please try again.');
+            }
+        });
+        
+        // Clear path when selections change
+        document.getElementById('start').addEventListener('change', function() {
+            if (currentPathLayer) {
+                map.removeLayer(currentPathLayer);
+                currentPathLayer = null;
+            }
+            document.getElementById('result').classList.remove('active');
+        });
+        
+        document.getElementById('goal').addEventListener('change', function() {
+            if (currentPathLayer) {
+                map.removeLayer(currentPathLayer);
+                currentPathLayer = null;
+            }
+            document.getElementById('result').classList.remove('active');
+        });
+    </script>
+</body>
+</html>
